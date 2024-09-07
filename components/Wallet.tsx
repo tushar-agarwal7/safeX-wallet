@@ -8,12 +8,11 @@ import { Terminal } from "lucide-react";
 export function Wallet() {
   const [mnemonic, setMnemonic] = useState("");
   const [count, setCount] = useState(0);
-  const [alertVisible, setAlertVisible] = useState(false); // State to control alert visibility
+  const [alertVisible, setAlertVisible] = useState(false); 
   const [alertMessage, setAlertMessage] = useState("");
   
   const handleCopyMnemonic = () => {
     navigator.clipboard.writeText(mnemonic);
-    // Hide alert after 3 seconds
   };
 
   return (
@@ -24,7 +23,6 @@ export function Wallet() {
         
       </div>
 
-      {/* Display Alert if visible */}
       {alertVisible && (
         <div className="mb-6 w-full max-w-md">
           <Alert>
@@ -44,7 +42,7 @@ export function Wallet() {
               setMnemonic(mn);
               if (count === 0) {
                
-                setAlertVisible(true);  // Show alert when mnemonic is copied
+                setAlertVisible(true);  
     setTimeout(() => setAlertVisible(false), 3000); 
               }
               setCount(1);
