@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { generateMnemonic, mnemonicToSeedSync } from "bip39"; // Change to mnemonicToSeedSync
+import { generateMnemonic, mnemonicToSeedSync } from "bip39";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Terminal } from "lucide-react";
 import { derivePath } from "ed25519-hd-key";
@@ -15,9 +15,9 @@ export function Wallet() {
   const [count, setCount] = useState<number>(0);
   const [alertVisible, setAlertVisible] = useState<boolean>(false);
   const [solIndex, setSolIndex] = useState<number>(0);
-  const [solAddress, setSolAddress] = useState<string[]>([]);
+  const [solAddress, setSolAddress] = useState<{ publicKey: string, privateKey: string }[]>([]);
   const [ethIndex, setEthIndex] = useState<number>(0);
-  const [ethAddress, setEthAddress] = useState<string[]>([]);
+  const [ethAddress, setEthAddress] = useState<{ publicKey: string, privateKey: string }[]>([]);
 
   const handleCopyMnemonic = () => {
     navigator.clipboard.writeText(mnemonic);
@@ -25,35 +25,36 @@ export function Wallet() {
 
   const createSolWallet = () => {
     if (!mnemonic) return;
-    const seed = mnemonicToSeedSync(mnemonic); // Use synchronous version
+    const seed = mnemonicToSeedSync(mnemonic);
     const path = `m/44'/501'/${solIndex}'/0'`;
     const derivedSeed = derivePath(path, seed.toString("hex")).key;
-    const secret = nacl.sign.keyPair.fromSeed(derivedSeed).secretKey;
-    const publicKey = Keypair.fromSecretKey(secret).publicKey.toBase58();
+    const secretKey = nacl.sign.keyPair.fromSeed(derivedSeed).secretKey;
+    const publicKey = Keypair.fromSecretKey(secretKey).publicKey.toBase58();
 
-    setSolAddress((prevAddresses) => [...prevAddresses, publicKey]);
+    setSolAddress((prevAddresses) => [
+      ...prevAddresses,
+      { publicKey, privateKey: bs58.encode(secretKey) }
+    ]);
     setSolIndex((prevIndex) => prevIndex + 1);
   };
 
   const createEthWallet = () => {
     if (!mnemonic) return;
-    const seed = mnemonicToSeedSync(mnemonic); // Use synchronous version
+    const seed = mnemonicToSeedSync(mnemonic);
     const path = `m/44'/60'/${ethIndex}'/0'`;
     const hdNode = ethers.HDNodeWallet.fromSeed(seed);
     const wallet = hdNode.derivePath(path);
-    const publicKey = wallet.publicKey;
 
     setEthAddress((prevAddresses) => [
       ...prevAddresses,
-      bs58.encode(Buffer.from(publicKey as Uint8Array)), // Ensure correct type
+      { publicKey: wallet.address, privateKey: wallet.privateKey }
     ]);
     setEthIndex((prevIndex) => prevIndex + 1);
   };
 
   return (
-    <main className="flex min-h-screen flex-col items-center p-24 gap-y-10">
-      {/* Title */}
-      <div className="text-5xl font-bold bg-sky-900 rounded-xl font-serif text-white mb-6 text-center p-4">
+    <main className="flex flex-col items-center p-4 sm:p-8 lg:p-24 gap-y-10 min-h-screen">
+      <div className="text-4xl sm:text-5xl font-bold bg-sky-900 rounded-xl font-serif text-white mb-6 text-center p-4">
         Generate Your <span className="text-yellow-300">SafeX Wallet</span>
       </div>
 
@@ -62,9 +63,7 @@ export function Wallet() {
           <Alert>
             <Terminal className="h-4 w-4" />
             <AlertDescription>
-              {
-                "Your Private Key or Seed Phrase is needed to recover your account. Keep it safe and don’t share it."
-              }
+              {"Your Private Key or Seed Phrase is needed to recover your account. Keep it safe and don’t share it."}
             </AlertDescription>
           </Alert>
         </div>
@@ -92,7 +91,6 @@ export function Wallet() {
       {mnemonic && (
         <div className="mt-6 p-6 bg-gray-800 rounded-lg shadow-lg w-full max-w-5xl text-center">
           <h3 className="font-bold mb-4 text-2xl text-yellow-300">Your Seed Phrase:</h3>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 bg-gray-900 p-4 rounded-md text-lg font-mono text-gray-200">
             {mnemonic.split(" ").map((word, index) => (
               <div key={index} className="flex items-center justify-center space-x-2">
@@ -107,7 +105,6 @@ export function Wallet() {
           >
             Copy Seed Phrase
           </button>
-
           <p className="mt-4 text-sm text-gray-400">
             Keep this phrase safe and secure. Never share it with anyone.
           </p>
@@ -133,56 +130,46 @@ export function Wallet() {
           </button>
         </div>
       )}
-  {/* solana addresses  */}
-     <div className="w-full flex flex-col lg:flex-row gap-12 mt-8 items-center justify-center">
-  {solAddress.length > 0 && (
-    <div className="lg:w-1/2 w-full bg-gradient-to-br from-blue-300 via-blue-900 to-indigo-700 p-8 rounded-3xl shadow-xl backdrop-blur-md border border-blue-500/50">
-      <h3 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 mb-8 text-center">
-       Solana Addresses
-      </h3>
-      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {solAddress.map((address, index) => (
-          <li
-            key={index}
-            className="relative font-mono text-gray-100 bg-blue-900 bg-opacity-70 p-5 rounded-xl shadow-lg border border-blue-700 hover:bg-opacity-80 hover:scale-105 transform transition-all duration-300"
-          >
-            <span className="absolute top-2 right-2 p-2 bg-yellow-400 text-gray-900 font-bold rounded-full">
-              {index + 1}
-            </span>
-            <p className="break-all text-center">{address}</p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )}
 
-  
+      <div className="w-full flex flex-col lg:flex-row gap-12 mt-8 items-center justify-center">
+        {solAddress.length > 0 && (
+          <div className="lg:w-1/2 w-full  p-8 rounded-3xl shadow-xl backdrop-blur-md border border-blue-500/50">
+            <h3 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 mb-8 text-center">
+              Solana Addresses
+            </h3>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {solAddress.map((wallet, index) => (
+                <li key={index} className="relative font-mono text-gray-100 bg-blue-900 bg-opacity-70 p-5 rounded-xl shadow-lg border border-blue-700 hover:bg-opacity-80 hover:scale-105 transform transition-all duration-300">
+                  <span className="absolute top-2 right-2 p-2 bg-yellow-400 text-gray-900 font-bold rounded-full">
+                    {index + 1}
+                  </span>
+                  <p className="break-all text-center"> <span className="text-xl"> Public: </span> {wallet.publicKey}</p>
+                  <p className="break-all text-center text-red-500 mt-2"> <span className="text-xl"> Private: </span> {wallet.privateKey}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-{/*  etherium address */}
-  {ethAddress.length > 0 && (
-    <div className="lg:w-1/2 w-full bg-gradient-to-br from-blue-300 via-indigo-600 to-blue-500 p-8 rounded-3xl shadow-xl backdrop-blur-md border border-indigo-500/50">
-      <h3 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 mb-8 text-center">
-        Ethereum Addresses
-      </h3>
-      <ul className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-        {ethAddress.map((address, index) => (
-          <li
-            key={index}
-            className="relative font-mono text-gray-100 bg-blue-900 bg-opacity-70 p-5 rounded-xl shadow-lg border border-indigo-600 hover:bg-opacity-80 hover:scale-105 transform transition-all duration-300"
-          >
-            <span className="absolute top-2 right-2 p-2 bg-yellow-400 text-gray-900 font-bold rounded-full">
-              {index + 1}
-            </span>
-            <p className="break-all text-center">{address}</p>
-          </li>
-        ))}
-      </ul>
-    </div>
-  )}
-</div>
-
-
-
+        {ethAddress.length > 0 && (
+          <div className="lg:w-1/2 w-full p-8 rounded-3xl shadow-xl backdrop-blur-md border border-green-500/50">
+            <h3 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500 mb-8 text-center">
+              Ethereum Addresses
+            </h3>
+            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {ethAddress.map((wallet, index) => (
+                <li key={index} className="relative font-mono text-gray-100 bg-green-900 bg-opacity-70 p-5 rounded-xl shadow-lg border border-green-700 hover:bg-opacity-80 hover:scale-105 transform transition-all duration-300">
+                  <span className="absolute top-2 right-2 p-2 bg-yellow-400 text-gray-900 font-bold rounded-full">
+                    {index + 1}
+                  </span>
+                  <p className="break-all text-center"> <span className="text-xl"> Public: </span> {wallet.publicKey}</p>
+                  <p className="break-all text-center text-red-500 mt-2"> <span className="text-xl"> Private: </span> {wallet.privateKey}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
     </main>
   );
 }
